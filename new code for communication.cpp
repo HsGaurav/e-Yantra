@@ -4,6 +4,7 @@
 #include<util/delay.h>
 #include <math.h> //included to support power function
 #include "lcd.h"
+#define TE (1<<5)
 
 void port_init();
 void timer5_init();
@@ -28,6 +29,12 @@ void servo1_pin_config (void)
 {
  DDRB  = DDRB | 0x20;  //making PORTB 5 pin output
  PORTB = PORTB | 0x20; //setting PORTB 5 pin to logic 1
+}
+
+void servo2_pin_config (void)
+{
+ DDRB  = DDRB | 0x40;  //making PORTB 6 pin output
+ PORTB = PORTB | 0x40; //setting PORTB 6 pin to logic 1
 }
 
 void lcd_port_config (void)
@@ -61,6 +68,7 @@ void motion_pin_config (void)
 void port_init()
 {
     servo1_pin_config(); //Configure PORTB 5 pin for servo motor 1 operation
+    servo2_pin_config(); //Configure PORTB 6 pin for servo motor 2 operation 
     motion_pin_config();
     buzzer_pin_config();
     adc_pin_config ();
@@ -88,6 +96,27 @@ void timer5_init()
     
     TCCR5B = 0x0B;  //WGM12=1; CS12=0, CS11=1, CS10=1 (Prescaler=64)
 }
+
+void timer1_init(void)
+{
+ TCCR1B = 0x00; //stop
+ TCNT1H = 0xFC; //Counter high value to which OCR1xH value is to be compared with
+ TCNT1L = 0x01; //Counter low value to which OCR1xH value is to be compared with
+ OCR1AH = 0x03; //Output compare Register high value for servo 1
+ OCR1AL = 0xFF; //Output Compare Register low Value For servo 1
+ OCR1BH = 0x03; //Output compare Register high value for servo 2
+ OCR1BL = 0xFF; //Output Compare Register low Value For servo 2
+ OCR1CH = 0x03; //Output compare Register high value for servo 3
+ OCR1CL = 0xFF; //Output Compare Register low Value For servo 3
+ ICR1H  = 0x03; 
+ ICR1L  = 0xFF;
+ TCCR1A = 0xAB; /*{COM1A1=1, COM1A0=0; COM1B1=1, COM1B0=0; COM1C1=1 COM1C0=0}
+                    For Overriding normal port functionality to OCRnA outputs.
+                  {WGM11=1, WGM10=1} Along With WGM12 in TCCR1B for Selecting FAST PWM Mode*/
+ TCCR1C = 0x00;
+ TCCR1B = 0x0C; //WGM12=1; CS12=1, CS11=0, CS10=0 (Prescaler=256)
+}
+
 
 void adc_init()
 {
@@ -211,19 +240,44 @@ void servo_1(unsigned char degrees)
  OCR1AL = (unsigned char) PositionPanServo;
 }
 
-void object_grip (void) // grip the object
+void servo_2(unsigned char degrees)
 {
- servo_1 (35);
+ float PositionTiltServo = 0;
+ PositionTiltServo = ((float)degrees / 1.86) + 35.0;
+ OCR1BH = 0x00;
+ OCR1BL = (unsigned char) PositionTiltServo;
+}
+
+void servo_1_free (void) //makes servo 1 free rotating
+{
+ OCR1AH = 0x03; 
+ OCR1AL = 0xFF; //Servo 1 off
+}
+
+void servo_2_free (void) //makes servo 2 free rotating
+{
+ OCR1BH = 0x03;
+ OCR1BL = 0xFF; //Servo 2 off
+}
+
+void object_grip_and_lift (void) // grip the object
+{
+ servo_1 (20);
+ _delay_ms(1000);
+ servo_2 (50);
  _delay_ms(1000);
 }
 
-void object_ungrip (void) // relase the object
+void object_ungrip_back_down (void) // relase the object
 {
  servo_1 (90);
  _delay_ms(1000);
-
+ back();
+ velocity(200, 200);
+ _delay_ms(700);
+ servo_2(120);
+ _delay_ms(1000);
 }
-
 
 //Function To Initialize UART0
 // desired baud rate:9600
@@ -239,6 +293,12 @@ void uart0_init(void)
  UBRR0L = 0x5F; // 14745600 Hzset baud rate lo
  UBRR0H = 0x00; //set baud rate hi
  UCSR0B = 0x98;
+}
+
+void uart_tx(char data)
+{
+    while(!(UCSR0A & TE))
+        UDR0 = data;
 }
 
 void readsensors ()
@@ -385,91 +445,72 @@ void countnodes ()
                 slight_forward();
                 break;
             case 'u':
+                stop();
+                _delay_ms(1000);
+                object_ungrip_back_down();
                 right();
                 velocity(200, 200);
                 _delay_ms(600);
                 turn_right();
-                stop();
-                _delay_ms(100);
-                object_ungrip();
                 break;
             case 'v':
                 slight_forward();
                 turn_right();
                 stop();
-                _delay_ms(300);
+                _delay_ms(1000);
+                object_grip_and_lift();
 	           //pick up the block
-				data = 0x32;		//ascii value of 2
-		      	UDR0 = data;
+                uart_tx(0x32);      //ascii value of 2
                 turn_left();
-                stop();
-                _delay_ms(100);
-                object_grip();
                 break;
             case 'w':
                 slight_forward();
                 turn_left();
                 stop();
-                _delay_ms(300);
-		      	data = 0x34;		//ascii value of 4
-    			UDR0 = data;
+                _delay_ms(1000);
+		      	object_grip_and_lift();
+                uart_tx(0x34);      //ascii value of 4
                 turn_left();
-                stop();
-                _delay_ms(100);
-                object_grip();
                 break;
             case 'x':
                 slight_forward();
                 turn_left();
                 stop();
-                _delay_ms(300);
-	       		data = 0x35;		//ascii value of 5
-    			UDR0 = data;
+                _delay_ms(1000);
+	       		object_grip_and_lift();
+                uart_tx(0x35);      //ascii value of 5
 	            turn_right();
-                stop();
-                _delay_ms(100);
-                object_grip();
                 break;
             case 'y':
                 slight_forward();
                 turn_left();
                 stop();
-                _delay_ms(300);
-	   	        data = 0x37;		//ascii value of 7
-    			UDR0 = data;
+                _delay_ms(1000);
+	   	        object_grip_and_lift();
+                uart_tx(0x37);      //ascii value of 7
 	           	turn_left();
-                stop();
-                _delay_ms(100);
-                object_grip();
                 break;
             case 'z':
                 slight_forward();
                 turn_right();
                 stop();
-                _delay_ms(300);
-    			data = 0x39;		//ascii value of 9
-    			UDR0 = data;
+                _delay_ms(1000);
+    			object_grip_and_lift();
+                uart_tx(0x39);      //ascii value of 9
         		turn_right();
-                stop();
-                _delay_ms(100);
-                object_grip();
                 break;
             case 'q':
                 slight_forward();
                 turn_right();
                 stop();
-                _delay_ms(300);
-	       		data = 0x41;		//ascii value of 11
-    			UDR0 = data;
+                _delay_ms(1000);
+	       		object_grip_and_lift();
+                uart_tx(0x41);      //ascii value of 11
 	           	turn_right();
-                stop();
-                _delay_ms(100);
-                object_grip();
                 break;
         }   
     }
 }
-
 
 void init_devices (void)
 {
@@ -477,6 +518,7 @@ void init_devices (void)
     port_init();
     adc_init();
     timer5_init();
+    timer1_init();
     sei();   //Enables the global interrupts
 }
 
@@ -489,6 +531,7 @@ int main()
     turn_right();
     turn_right();
     readsensors();
+
 
     data = 0x32;        //ascii value of 2
     UDR0 = data;
