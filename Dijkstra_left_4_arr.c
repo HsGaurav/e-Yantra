@@ -594,7 +594,7 @@ void countnodes ()
                 stop();
                 _delay_ms(1000);
                 object_ungrip();
-                transmit(dropobj[2]);
+                transmit('F');
                 buzzer_on();
                 stop();
                 _delay_ms(10000);
