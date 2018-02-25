@@ -437,9 +437,9 @@ void countnodes ()
             case 'A':                       //1
                 slight_forward();
                 turn_right();
-                // right();
-                // velocity(200 ,200);
-                // _delay_ms(200);
+                right();
+                velocity(200 ,200);
+                _delay_ms(50);
                 stop();
                 _delay_ms(1000);
                 object_grip_and_lift();
@@ -450,9 +450,9 @@ void countnodes ()
             case 'B':                       //2                     
                 slight_forward();
                 turn_right();
-                // right();
-                // velocity(200 ,200);
-                // _delay_ms(200);
+                right();
+                velocity(200 ,200);
+                _delay_ms(50);
                 stop();
                 _delay_ms(1000);
                 object_grip_and_lift();
@@ -463,9 +463,9 @@ void countnodes ()
             case 'C':                       //3
                 slight_forward();
                 turn_left();
-                // left();
-                // velocity(200 ,200);
-                // _delay_ms(200);
+                left();
+                velocity(200 ,200);
+                _delay_ms(50);
                 stop();
                 _delay_ms(1000);
                 object_grip_and_lift();
@@ -476,9 +476,9 @@ void countnodes ()
             case 'D':                       //4
                 slight_forward();
                 turn_left();
-                // left();
-                // velocity(200 ,200);
-                // _delay_ms(200);
+                left();
+                velocity(200 ,200);
+                _delay_ms(50);
                 stop();
                 _delay_ms(1000);
                 object_grip_and_lift();
@@ -489,9 +489,9 @@ void countnodes ()
             case 'E':                       //5
                 slight_forward();
                 turn_left();
-                // left();
-                // velocity(200 ,200);
-                // _delay_ms(200);
+                left();
+                velocity(200 ,200);
+                _delay_ms(50);
                 stop();
                 _delay_ms(1000);
                 object_grip_and_lift();
@@ -502,9 +502,9 @@ void countnodes ()
             case 'F':                       //6
                 slight_forward();
                 turn_left();
-                // left();
-                // velocity(200 ,200);
-                // _delay_ms(200);
+                left();
+                velocity(200 ,200);
+                _delay_ms(50);
                 stop();
                 _delay_ms(1000);
                 object_grip_and_lift();
@@ -515,9 +515,9 @@ void countnodes ()
             case 'G':                       //7
                 slight_forward();
                 turn_left();
-                // left();
-                // velocity(200 ,200);
-                // _delay_ms(215);
+                left();
+                velocity(200 ,200);
+                _delay_ms(50);
                 stop();
                 _delay_ms(1000);
                 object_grip_and_lift();
@@ -528,9 +528,9 @@ void countnodes ()
             case 'H':                       //8
                 slight_forward();
                 turn_left();
-                // left();
-                // velocity(200 ,200);
-                // _delay_ms(215);
+                left();
+                velocity(200 ,200);
+                _delay_ms(50);
                 stop();
                 _delay_ms(1000);
                 object_grip_and_lift();
@@ -541,9 +541,9 @@ void countnodes ()
             case 'I':                       //9
                 slight_forward();
                 turn_right();
-                // right();
-                // velocity(200 ,200);
-                // _delay_ms(200);
+                right();
+                velocity(200 ,200);
+                _delay_ms(50);
                 stop();
                 _delay_ms(1000);
                 object_grip_and_lift();
@@ -554,9 +554,9 @@ void countnodes ()
             case 'J':                       //10
                 slight_forward();
                 turn_left();
-                // left();
-                // velocity(200 ,200);
-                // _delay_ms(200);
+                left();
+                velocity(200 ,200);
+                _delay_ms(50);
                 stop();
                 _delay_ms(1000);
                 object_grip_and_lift();
@@ -567,9 +567,9 @@ void countnodes ()
             case 'K':                       //11
                 slight_forward();
                 turn_right();
-                // right();
-                // velocity(200 ,200);
-                // _delay_ms(200);
+                right();
+                velocity(200 ,200);
+                _delay_ms(50);
                 stop();
                 _delay_ms(1000);
                 object_grip_and_lift();
@@ -580,9 +580,9 @@ void countnodes ()
             case 'L':                       //12
                 slight_forward();
                 turn_right();
-                // right();
-                // velocity(200 ,200);
-                // _delay_ms(200);
+                right();
+                velocity(200 ,200);
+                _delay_ms(50);
                 stop();
                 _delay_ms(1000);
                 object_grip_and_lift();
