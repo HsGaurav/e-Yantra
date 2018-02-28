@@ -1,108 +1,133 @@
+
 #include <Stepper.h>
 #include <SoftwareSerial.h>
-#define rxPin 2
-#define txPin 3
-const int SPR = 200;
-char x,y,z;
-int i=10,j=20,k=30 ;
-int go=0;
-char color[4]={'r','g','b','y'};
-
-
+#define rxPin 2                    //xbee recieving pin
+#define txPin 3                    //xbee transmitting pin 
+int switch1=4;                     //Enable A pin
+int switch2=5;                     //Enable A pin 
+int switch3=6;                     //Enable B pin
+int switch4=7;                     //Enable B pin  
+const int SPR = 200;                //Steps Per revolution by Stepper motor
+char x,y;                         //for storing the input recieved from xbee
+int go=0;                         //for assigning the value to the stepper
+int i=10,j=20,num=0,alt=0;   
+char color[4]={'g','r','b','y'};    //Color Sequence of the rotating part
+int pos=0; 
 SoftwareSerial xbee =  SoftwareSerial(rxPin, txPin);
 Stepper myStepper(SPR, 8, 9, 10, 11);
 
 
 void alter(int a)      //Function to change the array after each rotation
-{
-  char Modified[4]; 
- int temp=0,z=0;   
-     for(z=0;z<4;z++)     
-     { if(a>3)                
+{                      
+ char Modified[4];     //local variable for making changes
+ int temp=0;            
+     for(pos=0;pos<4;pos++)     
+     { if(a>3)          //going to 0 index when the index exceedes the size of array 'Modified' 
        a=0;                   
-       if(temp>3)               
+       if(temp>3)       //going to 0 index when the index exceedes the size of array 'color'         
        temp=0;       
-       Modified[a]=color[temp];
+       Modified[a]=color[temp]; //the changes are made in local array
        a++;
        temp++;         
      } 
-    for(z=0;z<4;z++)
-     color[z]=Modified[z]; 
+    for(pos=0;pos<4;pos++)          
+     color[pos]=Modified[pos];    //making these changes in the global array
 }
 
 
 void setup() {
-  // put your setup code here, to run once:
+ 
  pinMode(rxPin, INPUT);
  pinMode(txPin, OUTPUT);
+ pinMode(switch1,OUTPUT);
+ pinMode(switch2,OUTPUT);
+ pinMode(switch3,OUTPUT);
+ pinMode(switch4,OUTPUT);
  xbee.begin(9600);
+ myStepper.setSpeed(40); 
  Serial.begin(9600);
- Serial.println("Starting XBee Comunication");
+ Serial.println("Starting Rotation 3...2..1.");
 }
  
 void loop () {
- myStepper.setSpeed(20); 
+ digitalWrite(switch1,LOW);  //Enable pins for motor
+ digitalWrite(switch2,LOW);  //Enable pin 2 for motors
+ digitalWrite(switch3,LOW);
+ digitalWrite(switch4,LOW);
    
-   x=(xbee.read());
-   
-     switch(x)
-      { case 'm' : i=0;
+   x=(xbee.read());  //for the color of the crate
+   y=(xbee.read());  //for the position of deposition 
+   delay(100); 
+   Serial.print(x);
+   Serial.print(y);
+   for(pos=0;pos<4;pos++)          
+     Serial.print(color[pos]);  
+ 
+          if(x==color[0])         //Comparing and finding which color side to be faced
+            j=0;
+          else if(x==color[1])
+            j=1;
+          else if(x==color[2]) 
+            j=2;
+          else if(x==color[3])
+            j=3;
+          else if(x=='d')         //the 'd' here tells that the picked block is to be kept
+           xbee.write('d');
+          else if(x=='o')
+           xbee.write('o'); 
+          else 
+            j=9; 
+
+           switch(y)
+     
+      
+      { case 'm' : {              // m for the west direction deposition 
+                     num=0;       // for adding up to the 0 rotation
+                     alt=0;}      // for adding up change in function  alter
         break;
-        case 'n' : i=1;
-        break;
-        case 'o' : i=2;
+        case 'n' : {              
+                    num=0.25;     
+                    alt=1;}       
+        break; 
+        case 'o' : {           
+                     num=0.5;  
+                     alt=2;}   
         break;
         default : i=9; 
       }  
-
-          y=(xbee.read());
-  
-          if(y==color[0])
-            j=1;
-          else if(y==color[1])
-            j=2;
-          else if(y==color[2])
-            j=3;
-          else if(y==color[3])
-            j=4;
-          else
-            j=9; 
-      
-  k=i+j; 
- 
-//Serial.println(k);
-         
-          switch(k)
-          {  case 1:{go=SPR/4;
-                     alter(1); }
+          //     
+          switch(j)
+          {  case 0:{go=SPR*(0+num);      //if first color 0  adding to the 'go' for rotation according to the position
+                     alter((0+alt)%4);    //making the changes in global array w.r.t the position changes using alter function 
+                     }
               break;
-             case 2:{go=SPR/2;
-                     alter(2);}
+             case 1:
+                    {go=SPR*(0.75+num);  //>>for clockwise 0.75 and for anticlockwise 0.25
+                     alter((3+alt)%4);   
+                    }
               break;
-             case 3:{go=SPR*0.75;
-                     alter(3);}
+             case 2:{go=SPR*(0.5+num);   
+                     alter((2+alt)%4);    
+                     }
               break;
-             case 4:{go=SPR*0;
-                     alter(0);}
-              break;
-             case 5:{go=SPR/4;
-                     alter(1);}
-              break;
-             case 6:{go=SPR/2;
-                     alter(2);}
+             case 3:{go=SPR*(0.25+num);  // >>for clockwise 0.25 and for anticlockwise 0.75
+                     alter((1+alt)%4);    
+                     }
               break;
              default: go=SPR*0;
             
             }
-  if(k<8)           
-  myStepper.step(-(go*1.2));
-  else
-   myStepper.step(0);
-  
-  z=(xbee.read());
-  if(z=='p')
-   xbee.write('p');
-  if(z=='d')
-   xbee.write('d');   
-        
+    if(j<4)                          //if the board has rotated or faced correctly 
+  { 
+    digitalWrite(switch2,HIGH);      //Enabling the motor pins only when the speed is to be given to motor
+    digitalWrite(switch4,HIGH);      //this saves the power and prevents heating of motor driver 
+    delay(100);                      
+    xbee.write('p');                 //sending the signal    
+    myStepper.step(go);              // giving the processed value to the stepper motor
+    delay(2000);                     //delay for better condition
+  }
+
+   
+
+
 }
