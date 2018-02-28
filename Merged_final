@@ -1,0 +1,1018 @@
+int mapangle[nVertices][nVertices];     
+int node_angle[nVertices];         
+int path[nVertices];            
+int shortest_path[nVertices];  
+int destination, source;       
+int test_path[70];             
+int arr[] = {0,1,13,3,13,5,14,7,14,9,15,12,15};     
+char node[nVertices][4];   
+graph
+*/
+
+#define F_CPU 14745600
+#include<avr/io.h>
+#include<avr/interrupt.h>
+#include<util/delay.h>
+#include <math.h> //included to support power function
+#include "lcd.h"
+#define INF 10000
+#define nVertices 27
+
+void port_init();
+void timer5_init();
+void velocity(unsigned char, unsigned char);
+void motors_delay();
+
+unsigned char data;
+unsigned char ADC_Conversion(unsigned char);
+unsigned char ADC_Value;
+unsigned char flag = 0;
+unsigned char Left_black_line = 0;
+unsigned char Center_black_line = 0;
+unsigned char Right_black_line = 0;
+//white line sensor value calibration
+const int range = 25;
+int left_count, center_reached = 0, White = -1, point = -1;
+//position of the blocks
+int blocks [] = {1,3,5,7,9,12};
+char color [] = {'b','y','b','r','r','g'};
+//three different drop point that is to be transmitted from firebird to rotating structure
+char dropobj[] = {'m','n','o'};
+//array we get from the movement from dijkstra
+char path_to_follow[] = {'s','l','s','A','l','u','r','s','s','s','C','s','s','s','l','u','r','s','s','s','s','s','r','E','s','r','s','s','s','u','s','s','s','r','G','l','s','s','s','u','s',']','s','l','s','I','s','s','s','s','r','u','l','L','r','0'};
+
+
+int prev_angle = 0;       //initialization of previous angle
+int mapangle[nVertices][nVertices];     //angle between two nodes
+int node_angle[nVertices];          //angle array for the nodes
+int path[nVertices];            //path array is the path shortest path given by the dijkstra algorithm
+int shortest_path[nVertices];       //shortest path in dijkstra
+int destination, source;          //starting node and destination node
+int test_path[70];              //final path from destination to the source
+int arr[] = {0,1,13,3,13,5,14,7,14,9,15,12,15};     //array describing ldestination and source
+char node[nVertices][4];                //node array
+
+//graph gives the adjacency matrix of the arena
+int graph[nVertices][nVertices] = {
+          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0},//0
+          {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0},//1
+  //       0, 1, 2, 3, 4, 5, 6, 7, 8, 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+          {0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0},//2
+          {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0},//3
+  //       0, 1, 2, 3, 4, 5, 6, 7, 8, 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+          {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0},//4
+          {0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0},//5
+  //       0, 1, 2, 3, 4, 5, 6, 7, 8, 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+          {0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0},//6
+          {0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0},//7
+  //       0, 1, 2, 3, 4, 5, 6, 7, 8, 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+          {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0},//8
+          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0},//9
+  //       0, 1, 2, 3, 4, 5, 6, 7, 8, 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+          {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0},//10
+          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0},//11
+  //       0, 1, 2, 3, 4, 5, 6, 7, 8, 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},//12
+          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0},//13
+  //       0, 1, 2, 3, 4, 5, 6, 7, 8, 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0},//14
+          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},//15
+  //       0, 1, 2, 3, 4, 5, 6, 7, 8, 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+          {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0},//16
+          {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0},//17
+  //       0, 1, 2, 3, 4, 5, 6, 7, 8, 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+          {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0},//18
+          {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},//19
+  //       0, 1, 2, 3, 4, 5, 6, 7, 8, 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+          {0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},//20
+          {0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},//21
+  //       0, 1, 2, 3, 4, 5, 6, 7, 8, 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+          {0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},//22
+          {0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},//23
+  //       0, 1, 2, 3, 4, 5, 6, 7, 8, 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+          {0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},//24
+          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0},//25
+  //       0, 1, 2, 3, 4, 5, 6, 7, 8, 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},//26
+                  };
+
+void init_n0de(){
+  for (int i = 0; i < nVertices; i++)
+    strcpy(node[i], "-2");
+  //array for the block and u turn nodes that is described in the node detection switch cases
+  strcpy(node[1], "A");
+  strcpy(node[2], "B");             
+  strcpy(node[3], "C");
+  strcpy(node[4], "D");
+  strcpy(node[5], "E");
+  strcpy(node[6], "F");
+  strcpy(node[7], "G");
+  strcpy(node[8], "H");
+  strcpy(node[9], "I");
+  strcpy(node[10], "J");
+  strcpy(node[11], "K");
+  strcpy(node[12], "L");
+  strcpy(node[13], "u");
+  strcpy(node[14], "u");
+  strcpy(node[15], "u");
+  for (int i = 0; i < nVertices; i++)
+    //describing the node angles 
+}
+          node_angle[i] = -1;
+  node_angle[1] = node_angle[2] = node_angle[3] = node_angle[4] = node_angle[15] = 180;
+  node_angle[5] = node_angle[6] = node_angle[7] = node_angle[8] = 90;
+  node_angle[9] = node_angle[10] = node_angle[11] = node_angle[12] = node_angle[13] = 0
+; node_angle[14] = 270;                                               
+
+///elimination of the -2 from the shortest path array
+void inittestpath(){
+    static int e = 1;
+  for (int i = 1; i < nVertices; i++){
+    if (shortest_path[i] > -1){
+        test_path[e] = shortest_path[i];                    
+        e++;
+    }
+    else 
+      break;
+  }
+  test_path[e] = (int)node[test_path[e-1]][0];
+  e++;
+}
+
+// checks the angle given between the connected nodes
+bool map_check (){
+  for (int i = 0; i < nVertices/2+1; i++)
+    for (int j = 0; j < nVertices; j++) {
+      if (mapangle[i][j] != INF && !((mapangle[i][j] == 0 && mapangle[j][i] == 180) ||
+        (mapangle[i][j] == 180 && mapangle[j][i] == 0) ||
+        (mapangle[i][j] == 90 && mapangle[j][i] == 270) ||                        
+        (mapangle[i][j] == 270 && mapangle[j][i] == 90))){
+          cout << i << j << endl;
+          return false;
+        }
+    }
+  return true;
+}
+//defines the turn for the switch case that is defined in the node handling ie node detection funtion on the basis of angle between the connected nodes
+char turn(int angle)
+{
+  char ang;
+  switch(angle)
+  {
+    case 0:
+    case 360:
+      ang = 's';
+      //s for straight movement
+      break;
+    case 90:
+    case -270:
+      ang = 'l';
+      //l for left movement
+      break;
+    case 180:
+    case -180:
+      ang = 'u';
+      //u for the u turn
+      break;
+    case 270:
+    case -90:
+      ang = 'r';
+      //r for the right turn
+      break;
+  }
+  return ang;
+  //return the ang variable with defined char accordance to the angle
+}
+
+//gives the movement that gives the actual array for the working of the switch case movement
+char* move() {
+  char *movement = new char[70];
+  for (int i = 0, j = 0; test_path[j] != -2; i++, j++)
+          if (test_path[j+1] < 28){
+            movement[i] = turn(mapangle[test_path[j+1]][test_path[j]] - prev_angle);
+            prev_angle = mapangle[test_path[j+1]][test_path[j]];
+          }
+          else{
+            movement[i] = (char) test_path[j+1];
+            prev_angle = node_angle[test_path[j+1]-'A'+1];
+            for (int k = j+1; test_path[k] != 0; k++)
+                    test_path[k] = test_path[k+1];
+            j--;
+            if (movement[i] != 'u')
+              movement[++i] = 'p';
+          }
+  return movement;
+}
+
+void servo1_pin_config (void)
+{
+ DDRB  = DDRB | 0x20;  //making PORTB 5 pin output
+ PORTB = PORTB | 0x20; //setting PORTB 5 pin to logic 1
+}
+
+void servo2_pin_config (void)
+{
+ DDRB  = DDRB | 0x40;  //making PORTB 6 pin output
+ PORTB = PORTB | 0x40; //setting PORTB 6 pin to logic 1
+}
+
+void lcd_port_config (void)
+{
+ DDRC = DDRC | 0xF7; //all the LCD pin's direction set as output
+ PORTC = PORTC & 0x80; // all the LCD pins are set to logic 0 except PORTC 7
+}
+
+//analog to digital pin config funtion
+void adc_pin_config (void)
+{
+ DDRF = 0x00; 
+ PORTF = 0x00;
+ DDRK = 0x00;
+ PORTK = 0x00;
+}
+
+void buzzer_pin_config (void)
+{
+ DDRC = DDRC | 0x08;        //Setting PORTC 3 as output
+ PORTC = PORTC & 0xF7;      //Setting PORTC 3 logic low to turnoff buzzer
+}
+
+void motion_pin_config (void)
+{
+ DDRA = DDRA | 0x0F;
+ PORTA = PORTA & 0xF0;
+ DDRL = DDRL | 0x18;   //Setting PL3 and PL4 pins as output for PWM generation
+ PORTL = PORTL | 0x18; //PL3 and PL4 pins are for velocity control using PWM.
+}
+
+void port_init()
+{
+    servo1_pin_config(); //Configure PORTB 5 pin for servo motor 1 operation
+    servo2_pin_config(); //Configure PORTB 6 pin for servo motor 2 operation 
+    motion_pin_config();// configure pin fot motion of the firebird
+    buzzer_pin_config(); //configure pin for buzzer
+    adc_pin_config ();  //analog to digita pin congiguration
+    lcd_port_config();  //lcd pin config
+}
+
+// Timer 5 initialized in PWM mode for velocity control
+// Prescale:256
+// PWM 8bit fast, TOP=0x00FF
+// Timer Frequency:225.000Hz
+void timer5_init()
+{
+    TCCR5B = 0x00;  //Stop
+    TCNT5H = 0xFF;  //Counter higher 8-bit value to which OCR5xH value is compared with
+    TCNT5L = 0x01;  //Counter lower 8-bit value to which OCR5xH value is compared with
+    OCR5AH = 0x00;  //Output compare register high value for Left Motor
+    OCR5AL = 0xFF;  //Output compare register low value for Left Motor
+    OCR5BH = 0x00;  //Output compare register high value for Right Motor
+    OCR5BL = 0xFF;  //Output compare register low value for Right Motor
+    OCR5CH = 0x00;  //Output compare register high value for Motor C1
+    OCR5CL = 0xFF;  //Output compare register low value for Motor C1
+    TCCR5A = 0xA9;  /*{COM5A1=1, COM5A0=0; COM5B1=1, COM5B0=0; COM5C1=1 COM5C0=0}
+                      For Overriding normal port functionality to OCRnA outputs.
+                      {WGM51=0, WGM50=1} Along With WGM52 in TCCR5B for Selecting FAST PWM 8-bit Mode*/
+    
+    TCCR5B = 0x0B;  //WGM12=1; CS12=0, CS11=1, CS10=1 (Prescaler=64)
+}
+
+void timer1_init(void)
+{
+    TCCR1B = 0x00; //stop
+    TCNT1H = 0xFC; //Counter high value to which OCR1xH value is to be compared with
+    TCNT1L = 0x01; //Counter low value to which OCR1xH value is to be compared with
+    OCR1AH = 0x03; //Output compare Register high value for servo 1
+    OCR1AL = 0xFF; //Output Compare Register low Value For servo 1
+    OCR1BH = 0x03; //Output compare Register high value for servo 2
+    OCR1BL = 0xFF; //Output Compare Register low Value For servo 2
+    OCR1CH = 0x03; //Output compare Register high value for servo 3
+    OCR1CL = 0xFF; //Output Compare Register low Value For servo 3
+    ICR1H  = 0x03; 
+    ICR1L  = 0xFF;
+    TCCR1A = 0xAB; /*{COM1A1=1, COM1A0=0; COM1B1=1, COM1B0=0; COM1C1=1 COM1C0=0}
+                        For Overriding normal port functionality to OCRnA outputs.
+                      {WGM11=1, WGM10=1} Along With WGM12 in TCCR1B for Selecting FAST PWM Mode*/
+    TCCR1C = 0x00;
+    TCCR1B = 0x0C; //WGM12=1; CS12=1, CS11=0, CS10=0 (Prescaler=256)
+}
+
+
+void adc_init()
+{
+    ADCSRA = 0x00;
+    ADCSRB = 0x00;      //MUX5 = 0
+    ADMUX = 0x20;       //Vref=5V external --- ADLAR=1 --- MUX4:0 = 0000
+    ACSR = 0x80;
+    ADCSRA = 0x86;      //ADEN=1 --- ADIE=1 --- ADPS2:0 = 1 1 0
+}
+
+//Function For ADC Conversion
+unsigned char ADC_Conversion(unsigned char Ch) 
+{
+    unsigned char a;
+    if(Ch>7)
+    {
+        ADCSRB = 0x08;
+    }
+    Ch = Ch & 0x07;             
+    ADMUX= 0x20| Ch;            
+    ADCSRA = ADCSRA | 0x40;     //Set start conversion bit
+    while((ADCSRA&0x10)==0);    //Wait for conversion to complete
+    a=ADCH;
+    ADCSRA = ADCSRA|0x10; //clear ADIF (ADC Interrupt Flag) by writing 1 to it
+    ADCSRB = 0x00;
+    return a;
+}
+
+//Function To Print Sesor Values At Desired Row And Coloumn Location on LCD
+// void print_sensor(char row, char coloumn,unsigned char channel)
+// {
+    
+//     ADC_Value = ADC_Conversion(channel);
+//     lcd_print(row, coloumn, ADC_Value, 3);
+// }
+
+//defines the velocity of the motion of the firebird motors
+void velocity (unsigned char left_motor, unsigned char right_motor)
+{
+    OCR5AL = (unsigned char)left_motor;//velocity of the left motor
+    OCR5BL = (unsigned char)right_motor;//velocity of the right motor
+}
+
+//Function used for setting motor's direction
+void motion_set (unsigned char Direction)
+{
+    unsigned char PortARestore = 0;
+
+    Direction &= 0x0F;         // removing upper nibbel for the protection
+    PortARestore = PORTA;      // reading the PORTA original status
+    PortARestore &= 0xF0;      // making lower direction nibbel to 0
+    PortARestore |= Direction; // adding lower nibbel for forward command and restoring the PORTA status
+    PORTA = PortARestore;      // executing the command
+}
+
+void forward (void) //both wheels forward
+{
+  motion_set(0x06);
+}
+
+void back (void) //both wheels backward
+{
+  motion_set(0x09);
+}
+
+void left (void) //Left wheel backward, Right wheel forward
+{
+  motion_set(0x05);
+}
+
+void right (void) //Left wheel forward, Right wheel backward
+{
+  motion_set(0x0A);
+}
+
+void soft_left (void) //Left wheel stationary, Right wheel forward
+{
+ motion_set(0x04);
+}
+
+void soft_right (void) //Left wheel forward, Right wheel is stationary
+{
+ motion_set(0x02);
+}
+
+void soft_left_2 (void) //Left wheel backward, right wheel stationary
+{
+ motion_set(0x01);
+}
+
+void soft_right_2 (void) //Left wheel stationary, Right wheel backward
+{
+ motion_set(0x08);
+}
+
+void stop (void)
+{
+  motion_set(0x00);//stop both the wheels of the firebird
+}
+
+//set the buzzer pins  on for the beep activation
+//make buzzer on and beep sound
+void buzzer_on (void)
+{
+ unsigned char port_restore = 0;
+ port_restore = PINC;
+ port_restore = port_restore | 0x08;
+ PORTC = port_restore;
+}
+
+//turn off the buzzer pins off for the beep deactivation
+//make the buzzer off and beep sound to off
+void buzzer_off (void)
+{
+ unsigned char port_restore = 0;
+ port_restore = PINC;
+ port_restore = port_restore & 0xF7;
+ PORTC = port_restore;
+}
+
+//funtion for movement of servo 1 with degree as a parameter
+void servo_1(unsigned char degrees)  
+{
+ float PositionPanServo = 0;
+  PositionPanServo = ((float)degrees / 1.86) + 35.0;
+ OCR1AH = 0x00;
+ OCR1AL = (unsigned char) PositionPanServo;
+}
+
+//funtion for movement of servo 2 with degree as a parameter
+void servo_2(unsigned char degrees)
+{
+ float PositionTiltServo = 0;
+ PositionTiltServo = ((float)degrees / 1.86) + 35.0;
+ OCR1BH = 0x00;
+ OCR1BL = (unsigned char) PositionTiltServo;
+}
+
+//sets the servo 1 to free
+void servo_1_free (void) //makes servo 1 free rotating
+{
+ OCR1AH = 0x03; 
+ OCR1AL = 0xFF; //Servo 1 off
+}
+
+//sets the servo 2 to free
+void servo_2_free (void) //makes servo 2 free rotating
+{
+ OCR1BH = 0x03;
+ OCR1BL = 0xFF; //Servo 2 off
+}
+
+//makes the object grip using servo1 and lift up the oobject using servo 2
+void object_grip_and_lift (void) // grip the object
+{
+ servo_2 (120);
+ _delay_ms(1000);
+ servo_1 (20);
+ _delay_ms(1000);
+ servo_2 (50);
+ _delay_ms(1000);d
+ point += 1;
+}
+
+//ungrip the object at rotating structure
+void object_ungrip (void) // relase the object
+{
+ servo_1 (90);
+ _delay_ms(1000);
+ servo_2(20);
+ _delay_ms(1000);
+}
+//Function To Initialize UART0
+// desired baud rate:9600
+// actual baud rate:9600 (error 0.0%)
+// char size: 8 bit
+// parity: Disabled
+void uart0_init(void)
+{
+ UCSR0B = 0x00; //disable while setting baud rate
+ UCSR0A = 0x00;
+ UCSR0C = 0x06;
+// UBRR0L = 0x47; //11059200 Hz
+ UBRR0L = 0x5F; // 14745600 Hzset baud rate lo
+ UBRR0H = 0x00; //set baud rate hi
+ UCSR0B = 0x98;
+}
+
+//transmit the data in character form as char as a parameter
+void transmit(char data)
+{
+    UDR0 = data;
+}
+
+//reads the sensor values and update them
+void readsensors ()
+{
+    Left_black_line = ADC_Conversion(3);    //Getting data of Left WL Sensor
+    Center_black_line = ADC_Conversion(2);  //Getting data of Center WL Sensor
+    Right_black_line = ADC_Conversion(1);   //Getting data of Right WL Sensor
+}
+
+//strictly move both the wheels forword ignoring any node
+void slight_forward ()
+{
+    forward();
+    velocity(200,200);
+    _delay_ms(750);
+}
+
+//move both the wheels forward with the speed 200
+void straight ()
+{
+    forward();
+    velocity(200,200);
+}
+
+//turn left wheel back and right wheel forward 
+//move left for 200 ms ignoring detecting any line
+void turn_left ()
+{
+    left();
+    velocity(200, 200);
+    _delay_ms(200);
+    Right_black_line = ADC_Conversion(3);
+    //turns to left until unless right sensor detects the line
+    while (Right_black_line < range)
+    {
+        left();
+        velocity(200,200);
+        Right_black_line = ADC_Conversion(3);
+    }
+}
+
+//turn right wheel back and left wheel forward 
+//move right for 200 ms ignoring detecting any line
+void turn_right ()
+{
+    right();
+    velocity(200, 200);
+    _delay_ms(200);
+    Left_black_line = ADC_Conversion(1);
+    //turns to right until unless left sensor detects the line
+    while (Left_black_line < range)
+    {
+        right();
+        velocity(200,200);
+        Left_black_line = ADC_Conversion(1);
+    }
+}
+
+//follows a straight line
+//the motion is similar to pid(concept is based on pid)
+void straightlinefollowing ()
+{
+    flag=0;
+    forward();
+    if(Center_black_line>range)
+    {
+        velocity(200,200);
+        center_reached = 1;
+    }
+
+    if (Left_black_line > range)
+    {
+        velocity(100,200);
+        left_count = 1;
+        center_reached = 0;
+    }
+
+    if (Right_black_line > range)
+    {
+        velocity(200,100);
+        left_count = 0;
+        center_reached = 0;
+    }
+
+    if(Center_black_line < range && Left_black_line < range && Right_black_line < range)
+    {
+        if (left_count){
+            if (center_reached)
+                velocity(200, 175);
+            else
+                velocity(175, 200);
+        }
+        else{
+            if (center_reached)
+                velocity(175,200);
+            else
+                velocity(200,175);
+        }
+                    
+    }
+}
+
+//prints the value of the sensor to the led
+// void priintsensorvalue ()
+// {
+//     print_sensor(1,1,3);    //Prints value of White Line Sensor1
+//     print_sensor(1,5,2);    //Prints Value of White Line Sensor2
+//     print_sensor(1,9,1);    //Prints Value of White Line Sensor3
+// }
+
+
+void countnodes ()
+{
+    //detects the nodes using sensor values on more than two sensors
+    //compares the character array from the dijkstra algorithm which gave the turn  
+    if ((Center_black_line>range && Left_black_line>range) || (Center_black_line>range && Right_black_line>range) || (Center_black_line>range && Left_black_line>range && Right_black_line>range))
+    {
+        White += 1;
+        //movemont based on the comparision by switch cases 
+        switch(path_to_follow[White])
+        {
+            case 'r':
+                //turn after making bot slightly forward 
+                slight_forward();
+                turn_right();
+                break;
+            case ']':
+                //double left turn ignoring one line coming in between the turn
+                slight_forward();
+                turn_right();
+                turn_right();
+                break;
+            case 'l':
+                //turn after making bot slightly forward 
+                slight_forward();
+                turn_left();
+                break;
+            case '[':
+                //double right turn ignoring one line coming in between the turn
+                slight_forward();
+                turn_left();
+                turn_left();
+                break;
+            case 's':
+                // move straight ignoring the node
+                slight_forward();
+                break;
+            case 'u':
+                //node metting at the rotating structure 
+                stop();
+                _delay_ms(1000);
+                object_ungrip();
+                //ungrip the object
+                right();
+                //makes u turn
+                velocity(200, 200);
+                _delay_ms(600);
+                turn_right();
+                transmit('d');
+                //transmit d char meaning dropped the block to rotating structure
+                break;
+            case 'A':                       //1
+                //detects the node where block is present
+                //moves the firebird in forward direction for the perfet turning
+                slight_forward();
+                //righ turn for picking of the crate
+                turn_right();
+                right();
+                velocity(200 ,200);
+                _delay_ms(200);
+                stop();
+                //stops the movement for one secoond due to pick up the block
+                _delay_ms(1000);
+                object_grip_and_lift();
+                //grip and lift the box
+                turn_left();
+                //takes left turn
+                transmit(color[point]);
+                //transmit the colour and the position of where it is dropes  form m,n,o to the firebird
+                transmit(dropobj[0]);
+                break;
+            case 'B':                       //2                     
+                //detects the node where block is present
+                //moves the firebird in forward direction for the perfet turning
+                slight_forward();
+                //righ turn for picking of the crate
+                turn_right();
+                right();
+                velocity(200 ,200);
+                _delay_ms(200);
+                stop();
+                //stops the movement for one secoond due to pick up the block
+                _delay_ms(1000);
+                object_grip_and_lift();
+                //grip and lift the box
+                turn_left();
+                //takes left turn
+                transmit(color[point]);
+                //transmit the colour and the position of where it is dropes  form m,n,o to the firebird
+                transmit(dropobj[0]);
+                break;
+            case 'C':                       //3
+                //detects the node where block is present
+                //moves the firebird in forward direction for the perfet turning
+                slight_forward();
+                //righ turn for picking of the crate
+                turn_left();
+                left();
+                velocity(200 ,200);
+                _delay_ms(200);
+                stop();
+                //stops the movement for one secoond due to pick up the block
+                _delay_ms(1000);
+                object_grip_and_lift();
+                //grip and lift the box
+                turn_left();
+                //takes left turn
+                transmit(color[point]);
+                //transmit the colour and the position of where it is dropes  form m,n,o to the firebird
+                transmit(dropobj[0]);
+                break;
+            case 'D':                       //4
+                //detects the node where block is present
+                //moves the firebird in forward direction for the perfet turning
+                slight_forward();
+                //righ turn for picking of the crate
+                turn_left();
+                left();
+                velocity(200 ,200);
+                _delay_ms(200);
+                stop();
+                //stops the movement for one secoond due to pick up the block
+                _delay_ms(1000);
+                object_grip_and_lift();
+                //grip and lift the box
+                turn_left();
+                //takes left turn
+                transmit(color[point]);
+                //transmit the colour and the position of where it is dropes  form m,n,o to the firebird
+                transmit(dropobj[0]);
+                break;
+            case 'E':                       //5
+                //detects the node where block is present
+                //moves the firebird in forward direction for the perfet turning
+                slight_forward();
+                //righ turn for picking of the crate
+                turn_left();
+                left();
+                velocity(200 ,200);
+                _delay_ms(200);
+                stop();
+                //stops the movement for one secoond due to pick up the block
+                _delay_ms(1000);
+                object_grip_and_lift();
+                //grip and lift the box
+                turn_right();
+                //takes left turn
+                transmit(color[point]);
+                //transmit the colour and the position of where it is dropes  form m,n,o to the firebird
+                transmit(dropobj[1]);
+                break;
+            case 'F':                       //6
+                //detects the node where block is present
+                //moves the firebird in forward direction for the perfet turning
+                slight_forward();
+                //righ turn for picking of the crate
+                turn_left();
+                left();
+                velocity(200 ,200);
+                _delay_ms(200);
+                stop();
+                //stops the movement for one secoond due to pick up the block
+                _delay_ms(1000);
+                object_grip_and_lift();
+                //grip and lift the box
+                turn_right();
+                //takes left turn
+                transmit(color[point]);
+                //transmit the colour and the position of where it is dropes  form m,n,o to the firebird
+                transmit(dropobj[1]);
+                break;
+            case 'G':                       //7
+                //detects the node where block is present
+                //moves the firebird in forward direction for the perfet turning
+                slight_forward();
+                //righ turn for picking of the crate
+                turn_left();
+                left();
+                velocity(200 ,200);
+                _delay_ms(215);
+                stop();
+                //stops the movement for one secoond due to pick up the block
+                _delay_ms(1000);
+                object_grip_and_lift();
+                //grip and lift the box
+                turn_left();
+                //takes left turn
+                transmit(color[point]);
+                //transmit the colour and the position of where it is dropes  form m,n,o to the firebird
+                transmit(dropobj[1]);
+                break;
+            case 'H':                       //8
+               //detects the node where block is present
+                //moves the firebird in forward direction for the perfet turning
+                slight_forward();
+                //righ turn for picking of the crate
+                turn_left();
+                left();
+                velocity(200 ,200);
+                _delay_ms(215);
+                stop();
+                //stops the movement for one secoond due to pick up the block
+                _delay_ms(1000);
+                object_grip_and_lift();
+                //grip and lift the box
+                turn_left();
+                //takes left turn
+                transmit(color[point]);
+                //transmit the colour and the position of where it is dropes  form m,n,o to the firebird
+                transmit(dropobj[1]);
+                break;
+            case 'I':                       //9
+                //detects the node where block is present
+                //moves the firebird in forward direction for the perfet turning
+                slight_forward();
+                //righ turn for picking of the crate
+                turn_right();
+                right();
+                velocity(200 ,200);
+                _delay_ms(200);
+                stop();
+                //stops the movement for one secoond due to pick up the block
+                _delay_ms(1000);
+                object_grip_and_lift();
+                //grip and lift the box
+                turn_right();
+                //takes left turn
+                transmit(color[point]);
+                //transmit the colour and the position of where it is dropes  form m,n,o to the firebird
+                transmit(dropobj[2]);
+                break;
+            case 'J':                       //10
+                //detects the node where block is present
+                //moves the firebird in forward direction for the perfet turning
+                slight_forward();
+                //righ turn for picking of the crate
+                turn_left();
+                left();
+                velocity(200 ,200);
+                _delay_ms(200);
+                stop();
+                //stops the movement for one secoond due to pick up the block
+                _delay_ms(1000);
+                object_grip_and_lift();
+                //grip and lift the box
+                turn_right();
+                //takes left turn
+                transmit(color[point]);
+                //transmit the colour and the position of where it is dropes  form m,n,o to the firebird
+                transmit(dropobj[2]);
+                break;
+            case 'K':                       //11
+               //detects the node where block is present
+                //moves the firebird in forward direction for the perfet turning
+                slight_forward();
+                //righ turn for picking of the crate
+                turn_right();
+                right();
+                velocity(200 ,200);
+                _delay_ms(200);
+                stop();
+                //stops the movement for one secoond due to pick up the block
+                _delay_ms(1000);
+                object_grip_and_lift();
+                //grip and lift the box
+                turn_right();
+                //takes left turn
+                transmit(color[point]);
+                //transmit the colour and the position of where it is dropes  form m,n,o to the firebird
+                transmit(dropobj[2]);
+                break;
+            case 'L':                       //12
+               //detects the node where block is present
+                //moves the firebird in forward direction for the perfet turning
+                slight_forward();
+                //righ turn for picking of the crate
+                turn_right();
+                right();
+                velocity(200 ,200);
+                _delay_ms(200);
+                stop();
+                //stops the movement for one secoond due to pick up the block
+                _delay_ms(1000);
+                object_grip_and_lift();
+                //grip and lift the box
+                turn_right();
+                //takes left turn
+                transmit(color[point]);
+                //transmit the colour and the position of where it is dropes  form m,n,o to the firebird
+                transmit(dropobj[2]);
+                break;
+            case '0':
+            //for the last node where buzzer needs to be active
+                stop();
+                _delay_ms(1000);
+                object_ungrip();
+                transmit('o');
+                //finally transmit the o char to the rotating structure when the run is completed
+                buzzer_on();
+                //makes buzzer on
+                stop();
+                _delay_ms(10000);
+                return 0;
+            break;
+        }   
+    }
+}
+
+void init_devices (void)
+{
+    cli(); //Clears the global interrupts
+    port_init();
+    uart0_init(); //Initailize UART1 for serial communiaction
+    adc_init();
+    timer5_init();
+    timer1_init();
+    sei();   //Enables the global interrupts
+}
+
+int main()
+{
+      for (int i = 0; i < nVertices; i++){
+    for (int j = 0; j < nVertices; j++)
+      mapangle[i][j] = INF;
+  }
+  //defination of the angle between the nodes
+  mapangle[0][16] = 180;
+  mapangle[0][17] = 90;
+  mapangle[0][18] = 0;
+  mapangle[0][19] = 270;
+  mapangle[1][21] = 270;
+  mapangle[1][2] = 90;
+  mapangle[2][1] = 270; 
+  mapangle[2][20] = 90;
+  mapangle[3][20] = 270;
+  mapangle[3][4] = 90;
+  mapangle[4][3] = 270;
+  mapangle[4][22] = 90;
+  mapangle[5][22] = 180;
+  mapangle[5][6] = 0;
+  mapangle[6][5] = 180;
+  mapangle[6][23] = 0;
+  mapangle[7][23] = 180;
+  mapangle[7][8] = 0;
+  mapangle[8][7] = 180; 
+  mapangle[8][24] = 0;
+  mapangle[9][24] = 90;
+  mapangle[9][10] = 270;
+  mapangle[10][9] = 90;
+  mapangle[10][25] = 270;
+  mapangle[11][25] = 90;
+  mapangle[11][12] = 270;
+  mapangle[12][11] = 90;
+  mapangle[12][26] = 270;
+  mapangle[13][21] = 180;
+  mapangle[14][19] = 90;
+  mapangle[15][26] = 0; 
+  mapangle[16][0] = 0;
+  mapangle[16][20] = 180;
+  mapangle[17][0] = 270;
+  mapangle[17][23] = 90;
+  mapangle[18][0] = 180;
+  mapangle[18][25] = 0;
+  mapangle[19][0] = 90;
+  mapangle[19][14] = 270;
+  mapangle[20][16] = 0;
+  mapangle[20][2] = 270;
+  mapangle[20][3] = 90;
+  mapangle[21][1] = 90; 
+  mapangle[21][13] = 0;
+  mapangle[22][4] = 270;
+  mapangle[22][5] = 0;
+  mapangle[23][17] = 270;
+  mapangle[23][6] = 180;
+  mapangle[23][7] = 0;
+  mapangle[24][8] = 180;
+  mapangle[24][9] = 270;
+  mapangle[25][10] = 90;
+  mapangle[25][18] = 180;
+  mapangle[25][11] = 270;
+  mapangle[26][15] = 180; 
+  mapangle[26][12] = 90;
+  init_n0de();
+  for (int i = 0; i< 70; i++) {
+    test_path[i] = -2;
+  }
+  test_path[0] = 0;
+  for (int q = 0; q < (sizeof(arr)/sizeof(*arr))-1; q++){
+    destination = arr[q];
+    source = arr[q+1];    
+    for (int i = 0; i < nVertices; i++){
+      shortest_path[i] = -2;
+    }
+  dijkstra (graph, source);
+  //dijkstra gave the path array 
+  shortestPath (source, destination);
+  //using source and destination which gives the shortest path array 
+  inittestpath();
+  }
+  char *movementPath = move();
+  int z = 0;
+  // cout<<map_check()<<endl;
+    //initialise the pins of the motions for firebird
+    init_devices();
+    turn_right();
+    turn_right();
+    readsensors();
+    while(1)
+    {
+        readsensors();
+        straightlinefollowing();
+        countnodes();
+    }
+    stop();
+    _delay_ms(10000);
+}
